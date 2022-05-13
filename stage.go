@@ -26,17 +26,19 @@ type Stage struct {
 	ctx       context.Context
 	cancel    context.CancelFunc
 	server    *Server
-	list      map[string]func(st *Stage)
+	list      map[string]func(st *Stage) (string, error)
 	startFunc func(st *Stage) error
 	wait      sync.WaitGroup
+	lock      sync.Mutex
+	data      map[string]string
 }
 
 func NewStage(cxt context.Context, cancel context.CancelFunc) *Stage {
 
-	return &Stage{ctx: cxt, cancel: cancel, wait: sync.WaitGroup{}}
+	return &Stage{ctx: cxt, cancel: cancel, wait: sync.WaitGroup{}, lock: sync.Mutex{}, data: make(map[string]string, 0), list: map[string]func(st *Stage) (string, error){}}
 }
 
-func (st *Stage) Add(param string, f func(st *Stage)) {
+func (st *Stage) Add(param string, f func(st *Stage) (string, error)) {
 
 	st.list[param] = f
 
@@ -91,6 +93,27 @@ func (st *Stage) StartFunc(f func(st *Stage) error) {
 
 				st.cancel()
 
+			default:
+
+				for s, f2 := range st.list {
+
+					if param == s {
+
+						msg, cErr := f2(st)
+
+						if cErr != nil {
+
+							conn.Write([]byte(cErr.Error()))
+
+							return
+						}
+
+						conn.Write([]byte(msg))
+
+					}
+
+				}
+
 			}
 
 		})
@@ -109,6 +132,21 @@ func (st *Stage) StartFunc(f func(st *Stage) error) {
 		return err
 
 	}
+}
+
+func (st *Stage) Set(key string, value string) {
+
+	st.lock.Lock()
+
+	defer st.lock.Unlock()
+
+	st.data[key] = value
+
+}
+
+func (st *Stage) Get(key string) string {
+
+	return st.data[key]
 }
 
 func (st *Stage) Run() error {
@@ -256,6 +294,30 @@ func (st *Stage) Run() error {
 				return nil
 			}
 
+		}
+
+	default:
+
+		for s, _ := range st.list {
+
+			if args[1] == s {
+
+				//fmt.Println(s)
+
+				c := NewClient()
+
+				msg, cErr := c.Send(s)
+
+				if cErr != nil {
+
+					return cErr
+				}
+
+				fmt.Println(msg)
+
+				//f(st)
+
+			}
 		}
 
 	}

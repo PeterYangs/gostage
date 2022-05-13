@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/spf13/cast"
 	"gostage"
 	"time"
 )
@@ -14,6 +15,8 @@ func main() {
 	g := gostage.NewStage(cxt, cancel)
 
 	g.StartFunc(func(st *gostage.Stage) error {
+
+		index := 0
 
 		for {
 
@@ -29,10 +32,19 @@ func main() {
 
 				fmt.Println(1111111111)
 
+				index++
+
+				st.Set("index", cast.ToString(index))
+
 			}
 
 		}
 
+	})
+
+	g.Add("status", func(st *gostage.Stage) (string, error) {
+
+		return st.Get("index"), nil
 	})
 
 	err := g.Run()
