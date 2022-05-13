@@ -26,6 +26,8 @@ func NewServer(cxt context.Context) *Server {
 
 func (s *Server) Start() error {
 
+	//fmt.Println(os.Getenv("SOCK_FILE"))
+
 	listen, err := net.Listen("unix", s.sockFile)
 
 	if err != nil {
@@ -35,7 +37,13 @@ func (s *Server) Start() error {
 
 	s.listen = listen
 
-	defer os.Remove(s.sockFile)
+	//defer func() {
+	//
+	//	os.Remove(s.sockFile)
+	//
+	//	fmt.Println("done")
+	//
+	//}()
 
 	go func() {
 
@@ -45,6 +53,8 @@ func (s *Server) Start() error {
 
 			s.listen.Close()
 
+			os.Remove(s.sockFile)
+
 			return
 
 		}
@@ -52,6 +62,8 @@ func (s *Server) Start() error {
 	}()
 
 	go s.work()
+
+	//fmt.Println("xxxxxxxxxxxxxxxxxxx")
 
 	return nil
 }

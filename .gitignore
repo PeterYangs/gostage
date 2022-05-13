@@ -7,3 +7,6 @@
 out
 gen
 /.env
+/kill.exe
+/outErr.log
+/outLog.log
