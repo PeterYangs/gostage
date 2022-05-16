@@ -10,9 +10,9 @@ import (
 
 func main() {
 
-	cxt, cancel := context.WithCancel(context.Background())
+	cxt, _ := context.WithCancel(context.Background())
 
-	g := gostage.NewStage(cxt, cancel)
+	g := gostage.NewStage(cxt)
 
 	g.StartFunc(func(st *gostage.Stage) error {
 

@@ -33,9 +33,11 @@ type Stage struct {
 	data      map[string]string
 }
 
-func NewStage(cxt context.Context, cancel context.CancelFunc) *Stage {
+func NewStage(cxt context.Context) *Stage {
 
-	return &Stage{ctx: cxt, cancel: cancel, wait: sync.WaitGroup{}, lock: sync.Mutex{}, data: make(map[string]string, 0), list: map[string]func(st *Stage) (string, error){}}
+	ct, cancel := context.WithCancel(cxt)
+
+	return &Stage{ctx: ct, cancel: cancel, wait: sync.WaitGroup{}, lock: sync.Mutex{}, data: make(map[string]string, 0), list: map[string]func(st *Stage) (string, error){}}
 }
 
 func (st *Stage) Add(param string, f func(st *Stage) (string, error)) {
