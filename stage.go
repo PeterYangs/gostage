@@ -5,11 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"github.com/PeterYangs/gcmd2"
+	"github.com/PeterYangs/gostage/lib/kill"
 	"github.com/PeterYangs/tools"
 	"github.com/PeterYangs/tools/file/read"
 	"github.com/joho/godotenv"
 	"github.com/spf13/cast"
-	"gostage/lib/kill"
 	"io"
 	"log"
 	"net"
@@ -191,9 +191,24 @@ func (st *Stage) Run() error {
 
 			if daemon {
 
+				sysType := runtime.GOOS
+
 				args[1] = "daemon"
 
-				cmd := gcmd2.NewCommand(tools.Join(" ", args)+" ", context.TODO())
+				var cmd *gcmd2.Gcmd2
+
+				runUser := os.Getenv("RUN_USER")
+
+				if sysType == `linux` && runUser != "nobody" && runUser != "" {
+
+					//以其他用户运行服务，源命令(sudo -u nginx ./main start)
+					cmd = gcmd2.NewCommand("sudo -u "+runUser+" "+tools.Join(" ", args)+" ", context.TODO())
+
+				} else {
+
+					cmd = gcmd2.NewCommand(tools.Join(" ", args)+" ", context.TODO())
+
+				}
 
 				cErr := cmd.StartNoWait()
 

@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/PeterYangs/gostage"
 	"github.com/spf13/cast"
-	"gostage"
 	"time"
 )
 

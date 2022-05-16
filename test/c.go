@@ -1,8 +1,8 @@
 package main
 
 import (
+	"github.com/PeterYangs/gostage"
 	"github.com/joho/godotenv"
-	"gostage"
 )
 
 func init() {

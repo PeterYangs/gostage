@@ -1,4 +1,4 @@
-module gostage
+module github.com/PeterYangs/gostage
 
 go 1.18
 
