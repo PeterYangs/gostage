@@ -83,7 +83,7 @@ func (st *Stage) StartFunc(f func(st *Stage) error) {
 		//退出信号
 		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-		serv := NewServer(st.ctx)
+		serv := NewServer(st)
 
 		serv.Callback(func(server *Server, param string, conn net.Conn) {
 
@@ -120,6 +120,7 @@ func (st *Stage) StartFunc(f func(st *Stage) error) {
 
 		})
 
+		//启动tcp服务器
 		err := serv.Start()
 
 		if err != nil {
@@ -167,6 +168,8 @@ func (st *Stage) Run() error {
 		if st.startFunc != nil {
 
 			err := st.startFunc(st)
+
+			st.wait.Wait()
 
 			fmt.Println("finish!!!")
 
@@ -226,6 +229,8 @@ func (st *Stage) Run() error {
 
 				return errors.New("启动失败:" + err.Error())
 			}
+
+			st.wait.Wait()
 
 			fmt.Println("finish!!!")
 

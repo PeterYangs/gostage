@@ -13,14 +13,16 @@ type Server struct {
 	ctx      context.Context
 	listen   net.Listener
 	callback func(server *Server, param string, conn net.Conn)
+	st       *Stage
 }
 
-func NewServer(cxt context.Context) *Server {
+func NewServer(st *Stage) *Server {
 
 	return &Server{
 
 		sockFile: os.Getenv("SOCK_FILE"),
-		ctx:      cxt,
+		ctx:      st.GetCxt(),
+		st:       st,
 	}
 }
 
@@ -35,15 +37,9 @@ func (s *Server) Start() error {
 		return err
 	}
 
-	s.listen = listen
+	s.st.wait.Add(1)
 
-	//defer func() {
-	//
-	//	os.Remove(s.sockFile)
-	//
-	//	fmt.Println("done")
-	//
-	//}()
+	s.listen = listen
 
 	go func() {
 
@@ -55,6 +51,8 @@ func (s *Server) Start() error {
 
 			os.Remove(s.sockFile)
 
+			s.st.wait.Done()
+
 			return
 
 		}
@@ -62,8 +60,6 @@ func (s *Server) Start() error {
 	}()
 
 	go s.work()
-
-	//fmt.Println("xxxxxxxxxxxxxxxxxxx")
 
 	return nil
 }
