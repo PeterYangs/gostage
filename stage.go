@@ -212,6 +212,8 @@ func (st *Stage) Run() error {
 
 				cErr := cmd.StartNoWait()
 
+				//fmt.Println("sudo -u " + runUser + " " + tools.Join(" ", args) + " ")
+
 				return cErr
 
 			}
