@@ -10,6 +10,7 @@ import (
 	"github.com/PeterYangs/tools/file/read"
 	"github.com/joho/godotenv"
 	"github.com/spf13/cast"
+	"gopkg.in/alecthomas/kingpin.v2"
 	"io"
 	"log"
 	"net"
@@ -26,23 +27,95 @@ type Stage struct {
 	ctx       context.Context
 	cancel    context.CancelFunc
 	server    *Server
-	list      map[string]func(st *Stage) (string, error)
+	list      map[string]*item
 	startFunc func(st *Stage) error
 	wait      sync.WaitGroup
 	lock      sync.Mutex
 	data      map[string]string
+	appDesc   string
 }
+
+type item struct {
+	fun   func(st *Stage) (string, error)
+	flags []*Flag
+	args  []*Arg
+	name  string
+	st    *Stage
+	help  string
+}
+
+func NewItem(fun func(st *Stage) (string, error), st *Stage, help string) *item {
+
+	return &item{fun: fun, st: st, help: help, flags: []*Flag{}, args: []*Arg{}}
+}
+
+func (i *item) Flag(name string, help string) *Flag {
+
+	//Flag{name: name, help: help}
+
+	f := NewFlag(name, help)
+
+	//i.flags[name] = f
+
+	i.flags = append(i.flags, f)
+
+	return f
+
+}
+
+type Flag struct {
+	name     string
+	value    string
+	help     string
+	required bool
+}
+
+func NewFlag(name string, help string) *Flag {
+
+	return &Flag{name: name, help: help}
+}
+
+type Arg struct {
+	name  string
+	value string
+}
+
+//type Command struct {
+//	name string
+//	st   *Stage
+//}
+//
+//func NewCommand(name string, st *Stage) *Command {
+//
+//	return &Command{name: name, st: st}
+//}
+
+//func NewFlag(name string, help string) *Flag {
+//
+//	return &Flag{name: name, help: help}
+//}
+//
+//func (f *Flag) Required() *Flag {
+//
+//	f.required = true
+//
+//	return f
+//}
 
 func NewStage(cxt context.Context) *Stage {
 
 	ct, cancel := context.WithCancel(cxt)
 
-	return &Stage{ctx: ct, cancel: cancel, wait: sync.WaitGroup{}, lock: sync.Mutex{}, data: make(map[string]string, 0), list: map[string]func(st *Stage) (string, error){}}
+	return &Stage{ctx: ct, cancel: cancel, wait: sync.WaitGroup{}, lock: sync.Mutex{}, data: make(map[string]string, 0), list: make(map[string]*item)}
 }
 
-func (st *Stage) Add(param string, f func(st *Stage) (string, error)) {
+func (st *Stage) AddCommand(param string, help string, f func(st *Stage) (string, error)) *item {
 
-	st.list[param] = f
+	i := NewItem(f, st, help)
+
+	st.list[param] = i
+
+	return i
 
 }
 
@@ -101,7 +174,7 @@ func (st *Stage) StartFunc(f func(st *Stage) error) {
 
 					if param == s {
 
-						msg, cErr := f2(st)
+						msg, cErr := f2.fun(st)
 
 						if cErr != nil {
 
@@ -152,6 +225,13 @@ func (st *Stage) Get(key string) string {
 	return st.data[key]
 }
 
+func (st *Stage) setAppDesc(desc string) *Stage {
+
+	st.appDesc = desc
+
+	return st
+}
+
 func (st *Stage) Run() error {
 
 	envErr := godotenv.Load(".env")
@@ -162,6 +242,33 @@ func (st *Stage) Run() error {
 	}
 
 	args := os.Args
+
+	app := kingpin.New(args[0], st.appDesc)
+
+	//启动
+	start := app.Command("start", "启动服务.")
+
+	start.Flag("daemon", "后台运行.").Short('d').Bool()
+
+	//停止
+	app.Command("stop", "停止运行.")
+
+	//守护进程
+	app.Command("daemon", "守护进程").Hidden()
+
+	//绑定自定义命令
+	for s, i := range st.list {
+
+		cd := app.Command(s, i.help)
+
+		for _, flag := range i.flags {
+
+			fg := cd.Flag(flag.name, flag.help)
+
+			fg.String()
+		}
+
+	}
 
 	if len(args) == 1 {
 
@@ -180,25 +287,15 @@ func (st *Stage) Run() error {
 		return errors.New("启动回调函数未设置")
 	}
 
-	switch args[1] {
+	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
 
 	case "start":
 
 		if st.startFunc != nil {
 
-			daemon := false
-			for k, v := range args {
-				if v == "-d" {
-					daemon = true
-					args[k] = ""
-				}
-			}
-
-			if daemon {
+			if app.GetCommand("start").GetFlag("daemon").Model().String() == "true" {
 
 				sysType := runtime.GOOS
-
-				args[1] = "daemon"
 
 				var cmd *gcmd2.Gcmd2
 
@@ -207,17 +304,17 @@ func (st *Stage) Run() error {
 				if sysType == `linux` && runUser != "nobody" && runUser != "" {
 
 					//以其他用户运行服务，源命令(sudo -u nginx ./main start)
-					cmd = gcmd2.NewCommand("sudo -u "+runUser+" "+tools.Join(" ", args)+" ", context.TODO())
+					cmd = gcmd2.NewCommand("sudo -u "+runUser+" "+args[0]+" daemon"+" ", context.TODO())
 
 				} else {
 
-					cmd = gcmd2.NewCommand(tools.Join(" ", args)+" ", context.TODO())
+					cmd = gcmd2.NewCommand(args[0]+" daemon", context.TODO())
 
 				}
 
 				cErr := cmd.StartNoWait()
 
-				//fmt.Println("sudo -u " + runUser + " " + tools.Join(" ", args) + " ")
+				fmt.Println(tools.Join(" ", args) + " ")
 
 				return cErr
 
@@ -239,6 +336,33 @@ func (st *Stage) Run() error {
 		}
 
 		return errors.New("启动回调函数未设置")
+
+	case "stop":
+
+		fmt.Println("stopping")
+
+		err := st.stop()
+
+		if err != nil {
+
+			return err
+		}
+
+		//检测pid文件是否存在来判断程序是否还在运行
+		for {
+
+			time.Sleep(300 * time.Millisecond)
+
+			ok, _ := PathExists(os.Getenv("PID_FILE"))
+
+			if ok == false {
+
+				fmt.Println("stopped")
+
+				return nil
+			}
+
+		}
 
 	case "daemon":
 
@@ -291,46 +415,27 @@ func (st *Stage) Run() error {
 
 		}
 
-		//return cErr
-
-	case "stop":
-
-		fmt.Println("stopping")
-
-		err := st.stop()
-
-		if err != nil {
-
-			return err
-		}
-
-		//检测pid文件是否存在来判断程序是否还在运行
-		for {
-
-			time.Sleep(300 * time.Millisecond)
-
-			ok, _ := PathExists(os.Getenv("PID_FILE"))
-
-			if ok == false {
-
-				fmt.Println("stopped")
-
-				return nil
-			}
-
-		}
-
 	default:
 
-		for s, _ := range st.list {
+		findArgs := false
+
+		for s, i := range st.list {
 
 			if args[1] == s {
 
-				//fmt.Println(s)
+				findArgs = true
 
 				c := NewClient()
 
 				msg, cErr := c.Send(s)
+
+				//fmt.Println(app.GetCommand(s).Model().Flags)
+
+				for i2, flag := range i.flags {
+
+					fmt.Println(flag.name, ":", app.GetCommand(s).Model().Flags[i2])
+
+				}
 
 				if cErr != nil {
 
@@ -339,14 +444,18 @@ func (st *Stage) Run() error {
 
 				fmt.Println(msg)
 
-				//f(st)
-
 			}
+		}
+
+		if !findArgs {
+
+			fmt.Println("未找到该命令")
 		}
 
 	}
 
 	return nil
+
 }
 
 func (st *Stage) GetCxt() context.Context {

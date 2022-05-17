@@ -121,7 +121,18 @@ func (s *Server) work() {
 		conn, err := s.listen.Accept()
 
 		if err != nil {
+
+			select {
+			case <-s.ctx.Done():
+
+				continue
+
+			default:
+
+			}
+
 			fmt.Printf("accept failed, err:%v\n", err)
+
 			continue
 		}
 
@@ -138,6 +149,8 @@ func (s *Server) read(conn net.Conn) {
 	// 针对当前连接做发送和接受操作
 	for {
 		reader := bufio.NewReader(conn)
+
+		//reader.ReadString()
 		var buf [1024]byte
 		n, err := reader.Read(buf[:])
 		if err != nil {
