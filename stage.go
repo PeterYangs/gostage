@@ -9,7 +9,6 @@ import (
 	"github.com/PeterYangs/gostage/lib/kill"
 	"github.com/PeterYangs/tools"
 	"github.com/PeterYangs/tools/file/read"
-	"github.com/joho/godotenv"
 	"github.com/spf13/cast"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"io"
@@ -17,6 +16,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"reflect"
 	"runtime"
 	"runtime/debug"
 	"sync"
@@ -34,6 +34,13 @@ type Stage struct {
 	lock      sync.Mutex
 	data      map[string]string
 	appDesc   string
+	config    Config
+}
+
+type Config struct {
+	RunPath string //pid存放路径
+	RunUser string //运行用户
+	LogPath string //日志存放路径
 }
 
 type item struct {
@@ -61,6 +68,8 @@ type Request struct {
 }
 
 func NewRequest(st *Stage, name string, flags map[string]string, args map[string]string, conn net.Conn) *Request {
+
+	//syscall.Access
 
 	return &Request{name: name, flags: flags, args: args, st: st, conn: conn, lock: sync.Mutex{}}
 }
@@ -171,9 +180,41 @@ func (arg *Arg) Required() *Arg {
 
 func NewStage(cxt context.Context) *Stage {
 
+	config := Config{
+		RunPath: "run",
+		RunUser: "nobody",
+		LogPath: "logs",
+	}
+
 	ct, cancel := context.WithCancel(cxt)
 
-	return &Stage{ctx: ct, cancel: cancel, wait: sync.WaitGroup{}, lock: sync.Mutex{}, data: make(map[string]string, 0), list: make(map[string]*item)}
+	return &Stage{ctx: ct, cancel: cancel, wait: sync.WaitGroup{}, lock: sync.Mutex{}, data: make(map[string]string, 0), list: make(map[string]*item), config: config}
+}
+
+func (st *Stage) LoadConfig(config Config) {
+
+	cos := reflect.ValueOf(config)
+
+	cf := reflect.ValueOf(&st.config).Elem()
+
+	for i := 0; i < cos.NumField(); i++ {
+
+		if !cos.Field(i).IsZero() {
+
+			if cf.Field(i).Kind() == reflect.Int {
+
+				cf.Field(i).SetInt(cos.Field(i).Int())
+			}
+
+			if cf.Field(i).Kind() == reflect.String {
+
+				cf.Field(i).SetString(cos.Field(i).String())
+			}
+
+		}
+
+	}
+
 }
 
 func (st *Stage) AddCommand(param string, help string, f func(request *Request) (string, error)) *item {
@@ -197,7 +238,7 @@ func (st *Stage) StartFunc(f func(st *Stage) error) {
 			return errors.New("记录pid失败:" + sErr.Error())
 		}
 
-		defer os.Remove(os.Getenv("PID_FILE"))
+		defer os.Remove(st.getRunPidName())
 
 		sigs := make(chan os.Signal, 1)
 
@@ -240,8 +281,6 @@ func (st *Stage) StartFunc(f func(st *Stage) error) {
 				for s, f2 := range st.list {
 
 					if param == s {
-
-						fmt.Println("参数为:", s)
 
 						request := NewRequest(st, param, flags, args, conn)
 
@@ -303,14 +342,30 @@ func (st *Stage) setAppDesc(desc string) *Stage {
 	return st
 }
 
+//权限写入检查
+func (st *Stage) permissionCheck() {
+
+	fErr := st.pathDeal(st.config.RunPath)
+
+	if fErr != nil {
+
+		panic("运行文件夹写入权限检查失败:" + fErr.Error())
+
+	}
+
+	fErr = st.pathDeal(st.config.LogPath)
+
+	if fErr != nil {
+
+		panic("日志文件夹写入权限检查失败:" + fErr.Error())
+
+	}
+
+}
+
 func (st *Stage) Run() error {
 
-	envErr := godotenv.Load(".env")
-
-	if envErr != nil {
-
-		return errors.New("配置文件加载失败:" + envErr.Error())
-	}
+	st.permissionCheck()
 
 	args := os.Args
 
@@ -390,7 +445,7 @@ func (st *Stage) Run() error {
 
 				var cmd *gcmd2.Gcmd2
 
-				runUser := os.Getenv("RUN_USER")
+				runUser := st.config.RunUser
 
 				if sysType == `linux` && runUser != "nobody" && runUser != "" {
 
@@ -403,9 +458,42 @@ func (st *Stage) Run() error {
 
 				}
 
-				cErr := cmd.StartNoWait()
+				cErr := cmd.StartNoWaitOutErr()
 
-				fmt.Println(tools.Join(" ", args) + " ")
+				time.Sleep(1 * time.Second)
+				//go func(gg *gcmd2.Gcmd2) {
+				//
+				//	r, e := gg.GetOutPipe()
+				//
+				//	if e != nil {
+				//
+				//		fmt.Println(e)
+				//
+				//		return
+				//	}
+				//
+				//	res := ""
+				//
+				//	b := make([]byte, 1024)
+				//	for {
+				//		n, rErr := r.Read(b)
+				//
+				//		if rErr != nil {
+				//
+				//			fmt.Println(rErr)
+				//
+				//			break
+				//		}
+				//
+				//		res += string(b[:n])
+				//
+				//	}
+				//
+				//	fmt.Println(res, "----------")
+				//
+				//}(cmd)
+				//
+				//time.Sleep(1 * time.Second)
 
 				return cErr
 
@@ -444,7 +532,7 @@ func (st *Stage) Run() error {
 
 			time.Sleep(300 * time.Millisecond)
 
-			ok, _ := PathExists(os.Getenv("PID_FILE"))
+			ok, _ := PathExists(st.getRunPidName())
 
 			if ok == false {
 
@@ -458,7 +546,7 @@ func (st *Stage) Run() error {
 	case "daemon":
 
 		//记录守护进程pid
-		f, err := os.OpenFile("daemon.pid", os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0664)
+		f, err := os.OpenFile(st.getDaemonName(), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0664)
 
 		if err != nil {
 
@@ -472,7 +560,7 @@ func (st *Stage) Run() error {
 
 		defer func() {
 
-			_ = os.Remove("daemon.pid")
+			_ = os.Remove(st.getDaemonName())
 
 		}()
 
@@ -516,7 +604,7 @@ func (st *Stage) Run() error {
 
 				findArgs = true
 
-				c := NewClient()
+				c := NewClient(st)
 
 				//fmt.Println(app.GetCommand(s).Model().Flags)
 
@@ -581,15 +669,16 @@ func (st *Stage) GetCxt() context.Context {
 
 func (st *Stage) stop() error {
 
-	isD, _ := PathExists("daemon.pid")
+	isD, _ := PathExists(st.getDaemonName())
+
+	//fmt.Println(st.getDaemonName())
 
 	if isD {
 
 		//守护进程关闭
-
 		sysType := runtime.GOOS
 
-		dPid, err := read.Open("daemon.pid").Read()
+		dPid, err := read.Open(st.getDaemonName()).Read()
 
 		if err != nil {
 
@@ -598,8 +687,6 @@ func (st *Stage) stop() error {
 		}
 
 		if sysType == `windows` {
-
-			//fmt.Println("")
 
 			if st.createWindowsKill() {
 
@@ -640,6 +727,8 @@ func (st *Stage) stop() error {
 
 		//非守护进程关闭
 
+		fmt.Println("nice啊")
+
 		return st.sendStop()
 
 	}
@@ -649,9 +738,17 @@ func (st *Stage) stop() error {
 
 func (st *Stage) sendStop() error {
 
-	c := NewClient()
+	c := NewClient(st)
 
-	_, err := c.Send("stop")
+	d := data{
+		Name:  "stop",
+		Flags: map[string]string{},
+		Args:  map[string]string{},
+	}
+
+	str, _ := json.Marshal(d)
+
+	_, err := c.Send(string(str))
 
 	if err != nil {
 
@@ -661,10 +758,25 @@ func (st *Stage) sendStop() error {
 	return nil
 }
 
+func (st *Stage) getRunPidName() string {
+
+	return st.config.RunPath + "/run.pid"
+}
+
+func (st *Stage) getSockName() string {
+
+	return st.config.RunPath + "/temp.sock"
+}
+
+func (st *Stage) getDaemonName() string {
+
+	return st.config.RunPath + "/daemon.pid"
+}
+
 //记录主程序pid
 func (st *Stage) savePid() error {
 
-	f, err := os.OpenFile(os.Getenv("PID_FILE"), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0664)
+	f, err := os.OpenFile(st.getRunPidName(), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0664)
 
 	if err != nil {
 
@@ -701,13 +813,23 @@ func (st *Stage) dealOut(g *gcmd2.Gcmd2) {
 
 }
 
+func (st *Stage) getOutLogName() string {
+
+	return st.config.LogPath + "/outLog.log"
+}
+
+func (st *Stage) getOutErrName() string {
+
+	return st.config.LogPath + "/outErr.log"
+}
+
 func (st *Stage) out(stt io.ReadCloser) {
 
 	defer stt.Close()
 
 	buf := make([]byte, 1024)
 
-	f, fErr := os.OpenFile("outLog.log", os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
+	f, fErr := os.OpenFile(st.getOutLogName(), os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
 
 	if fErr != nil {
 
@@ -746,7 +868,7 @@ func (st *Stage) err(stt io.ReadCloser) {
 
 	buf := make([]byte, 1024)
 
-	f, fErr := os.OpenFile("outErr.log", os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
+	f, fErr := os.OpenFile(st.getOutErrName(), os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
 
 	if fErr != nil {
 
@@ -816,4 +938,36 @@ func (st *Stage) createWindowsKill() bool {
 
 	return true
 
+}
+
+func (st *Stage) pathDeal(path string) error {
+
+	ok, _ := PathExists(path)
+
+	if !ok {
+
+		mErr := os.MkdirAll(path, 0755)
+
+		if mErr != nil {
+
+			return mErr
+		}
+	}
+
+	f, err := os.OpenFile(path+"/temp.txt", os.O_RDWR|os.O_CREATE, 0755)
+
+	if err != nil {
+
+		return errors.New(path + " 写入权限检查失败")
+	}
+
+	defer func() {
+
+		f.Close()
+
+		os.Remove(path + "/temp.txt")
+
+	}()
+
+	return nil
 }

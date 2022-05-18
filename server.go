@@ -21,7 +21,7 @@ func NewServer(st *Stage) *Server {
 
 	return &Server{
 
-		sockFile: os.Getenv("SOCK_FILE"),
+		sockFile: st.getSockName(),
 		ctx:      st.GetCxt(),
 		st:       st,
 	}

@@ -3,9 +3,8 @@ module github.com/PeterYangs/gostage
 go 1.18
 
 require (
-	github.com/PeterYangs/gcmd2 v0.0.6
+	github.com/PeterYangs/gcmd2 v0.0.7
 	github.com/PeterYangs/tools v0.2.40
-	github.com/joho/godotenv v1.4.0
 	github.com/spf13/cast v1.5.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 )

@@ -5,17 +5,16 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
 )
 
 type Client struct {
 	sockFile string
 }
 
-func NewClient() *Client {
+func NewClient(st *Stage) *Client {
 
 	return &Client{
-		sockFile: os.Getenv("SOCK_FILE"),
+		sockFile: st.getSockName(),
 	}
 }
 

@@ -14,6 +14,10 @@ func main() {
 
 	g := gostage.NewStage(cxt)
 
+	g.LoadConfig(gostage.Config{
+		RunUser: "nginx",
+	})
+
 	g.StartFunc(func(st *gostage.Stage) error {
 
 		index := 0
