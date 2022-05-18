@@ -42,16 +42,16 @@ func main() {
 
 	})
 
-	s := g.AddCommand("status", "当前进度.", func(st *gostage.Stage) (string, error) {
+	s := g.AddCommand("status", "当前进度.", func(request *gostage.Request) (string, error) {
 
-		//st.
-
-		return st.Get("index"), nil
+		return request.Get("index") + " flag(path:" + request.GetFlag("path") + ",name:" + request.GetFlag("name") + ") arg(filename:" + request.GetArg("filename") + ")", nil
 	})
 
 	s.Flag("path", "文件地址.")
 
 	s.Flag("name", "姓名.")
+
+	s.Arg("filename", "文件名称.").Required()
 
 	err := g.Run()
 

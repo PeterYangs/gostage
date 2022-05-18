@@ -3,6 +3,7 @@ package gostage
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"os"
@@ -12,7 +13,7 @@ type Server struct {
 	sockFile string
 	ctx      context.Context
 	listen   net.Listener
-	callback func(server *Server, param string, conn net.Conn)
+	callback func(server *Server, param string, conn net.Conn, flags map[string]string, args map[string]string)
 	st       *Stage
 }
 
@@ -99,7 +100,7 @@ func (s *Server) StartWait() error {
 }
 
 // Callback 回调赋值
-func (s *Server) Callback(f func(server *Server, param string, conn net.Conn)) {
+func (s *Server) Callback(f func(server *Server, param string, conn net.Conn, flags map[string]string, args map[string]string)) {
 
 	s.callback = f
 }
@@ -150,19 +151,25 @@ func (s *Server) read(conn net.Conn) {
 	for {
 		reader := bufio.NewReader(conn)
 
-		//reader.ReadString()
-		var buf [1024]byte
-		n, err := reader.Read(buf[:])
+		line, err := reader.ReadSlice('\n')
 		if err != nil {
-			//fmt.Printf("read from conn failed, err:%v\n", err)
 			break
 		}
 
-		recv := string(buf[:n])
+		var d data
+
+		jErr := json.Unmarshal(line, &d)
+
+		if jErr != nil {
+
+			conn.Write([]byte("解析数据失败:" + jErr.Error()))
+
+			return
+		}
 
 		if s.callback != nil {
 
-			s.callback(s, recv, conn)
+			s.callback(s, d.Name, conn, d.Flags, d.Args)
 		}
 
 	}

@@ -30,7 +30,7 @@ func (c *Client) Send(param string) (string, error) {
 
 	defer conn.Close()
 
-	_, err = conn.Write([]byte(param))
+	_, err = conn.Write([]byte(param + "\n"))
 
 	if err != nil {
 

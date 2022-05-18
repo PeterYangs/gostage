@@ -10,3 +10,5 @@ gen
 /kill.exe
 /outErr.log
 /outLog.log
+/run.pid
+/temp.sock

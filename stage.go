@@ -2,6 +2,7 @@ package gostage
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/PeterYangs/gcmd2"
@@ -36,7 +37,7 @@ type Stage struct {
 }
 
 type item struct {
-	fun   func(st *Stage) (string, error)
+	fun   func(request *Request) (string, error)
 	flags []*Flag
 	args  []*Arg
 	name  string
@@ -44,23 +45,88 @@ type item struct {
 	help  string
 }
 
-func NewItem(fun func(st *Stage) (string, error), st *Stage, help string) *item {
+type data struct {
+	Name  string            `json:"name"`
+	Flags map[string]string `json:"flags"`
+	Args  map[string]string `json:"args"`
+}
+
+type Request struct {
+	name  string
+	flags map[string]string
+	args  map[string]string
+	st    *Stage
+	conn  net.Conn
+	lock  sync.Mutex
+}
+
+func NewRequest(st *Stage, name string, flags map[string]string, args map[string]string, conn net.Conn) *Request {
+
+	return &Request{name: name, flags: flags, args: args, st: st, conn: conn, lock: sync.Mutex{}}
+}
+
+func (request *Request) Get(key string) string {
+
+	return request.st.Get(key)
+}
+
+func (request *Request) Set(key string, value string) {
+
+	request.st.Set(key, value)
+}
+
+func (request *Request) GetFlag(key string) string {
+
+	request.lock.Lock()
+
+	defer request.lock.Unlock()
+
+	return request.flags[key]
+
+}
+
+func (request *Request) GetFlags() map[string]string {
+
+	return request.flags
+}
+
+func (request *Request) GetArg(key string) string {
+
+	request.lock.Lock()
+
+	defer request.lock.Unlock()
+
+	return request.args[key]
+
+}
+
+func (request *Request) GetArgs() map[string]string {
+
+	return request.args
+}
+
+func NewItem(fun func(request *Request) (string, error), st *Stage, help string) *item {
 
 	return &item{fun: fun, st: st, help: help, flags: []*Flag{}, args: []*Arg{}}
 }
 
 func (i *item) Flag(name string, help string) *Flag {
 
-	//Flag{name: name, help: help}
-
 	f := NewFlag(name, help)
-
-	//i.flags[name] = f
 
 	i.flags = append(i.flags, f)
 
 	return f
 
+}
+
+func (i *item) Arg(name string, help string) *Arg {
+
+	a := NewArg(name, help)
+
+	i.args = append(i.args, a)
+
+	return a
 }
 
 type Flag struct {
@@ -75,32 +141,33 @@ func NewFlag(name string, help string) *Flag {
 	return &Flag{name: name, help: help}
 }
 
-type Arg struct {
-	name  string
-	value string
+func (flag *Flag) Required() *Flag {
+
+	flag.required = true
+
+	return flag
+
 }
 
-//type Command struct {
-//	name string
-//	st   *Stage
-//}
-//
-//func NewCommand(name string, st *Stage) *Command {
-//
-//	return &Command{name: name, st: st}
-//}
+type Arg struct {
+	name     string
+	value    string
+	help     string
+	required bool
+}
 
-//func NewFlag(name string, help string) *Flag {
-//
-//	return &Flag{name: name, help: help}
-//}
-//
-//func (f *Flag) Required() *Flag {
-//
-//	f.required = true
-//
-//	return f
-//}
+func NewArg(name string, help string) *Arg {
+
+	return &Arg{name: name, help: help}
+}
+
+func (arg *Arg) Required() *Arg {
+
+	arg.required = true
+
+	return arg
+
+}
 
 func NewStage(cxt context.Context) *Stage {
 
@@ -109,7 +176,7 @@ func NewStage(cxt context.Context) *Stage {
 	return &Stage{ctx: ct, cancel: cancel, wait: sync.WaitGroup{}, lock: sync.Mutex{}, data: make(map[string]string, 0), list: make(map[string]*item)}
 }
 
-func (st *Stage) AddCommand(param string, help string, f func(st *Stage) (string, error)) *item {
+func (st *Stage) AddCommand(param string, help string, f func(request *Request) (string, error)) *item {
 
 	i := NewItem(f, st, help)
 
@@ -158,7 +225,7 @@ func (st *Stage) StartFunc(f func(st *Stage) error) {
 
 		serv := NewServer(st)
 
-		serv.Callback(func(server *Server, param string, conn net.Conn) {
+		serv.Callback(func(server *Server, param string, conn net.Conn, flags map[string]string, args map[string]string) {
 
 			defer conn.Close()
 
@@ -174,7 +241,11 @@ func (st *Stage) StartFunc(f func(st *Stage) error) {
 
 					if param == s {
 
-						msg, cErr := f2.fun(st)
+						fmt.Println("参数为:", s)
+
+						request := NewRequest(st, param, flags, args, conn)
+
+						msg, cErr := f2.fun(request)
 
 						if cErr != nil {
 
@@ -261,9 +332,29 @@ func (st *Stage) Run() error {
 
 		cd := app.Command(s, i.help)
 
+		for _, arg := range i.args {
+
+			ag := cd.Arg(arg.name, arg.help)
+
+			//必填
+			if arg.required {
+
+				ag.Required()
+			}
+
+			ag.String()
+
+		}
+
 		for _, flag := range i.flags {
 
 			fg := cd.Flag(flag.name, flag.help)
+
+			//必填
+			if flag.required {
+
+				fg.Required()
+			}
 
 			fg.String()
 		}
@@ -427,15 +518,38 @@ func (st *Stage) Run() error {
 
 				c := NewClient()
 
-				msg, cErr := c.Send(s)
-
 				//fmt.Println(app.GetCommand(s).Model().Flags)
 
+				d := data{
+					Name:  s,
+					Flags: map[string]string{},
+					Args:  map[string]string{},
+				}
+
+				//参数绑定
 				for i2, flag := range i.flags {
 
-					fmt.Println(flag.name, ":", app.GetCommand(s).Model().Flags[i2])
+					d.Flags[flag.name] = app.GetCommand(s).Model().Flags[i2].String()
 
 				}
+
+				for i2, arg := range i.args {
+
+					d.Args[arg.name] = app.GetCommand(s).Model().Args[i2].String()
+
+				}
+
+				str, err := json.Marshal(d)
+
+				if err != nil {
+
+					fmt.Println(err)
+
+					return errors.New("打包json失败:" + err.Error())
+
+				}
+
+				msg, cErr := c.Send(string(str))
 
 				if cErr != nil {
 
