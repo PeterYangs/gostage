@@ -81,7 +81,7 @@ func main() {
 go run stage.go 或 go run stage.go start
 ```
 
-#### 后台运行
+#### 守护进程
 ```shell
 go  go run stage.go start -d
 ```
