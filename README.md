@@ -2,7 +2,7 @@
 
 gostage是一个快速搭建常驻服务的命令行脚手架。
 
-##安装
+## 安装
 ```shell
 go get github.com/PeterYangs/gostage
 ```
@@ -76,12 +76,12 @@ func main() {
 }
 ```
 
-### 启动
+#### 启动
 ```shell
 go run quickStart.go 或 go run quickStart.go start
 ```
 
-### 停止
+#### 停止
 ```shell
 go run quickStart.go stop
 ```
