@@ -78,22 +78,22 @@ func main() {
 
 #### 启动
 ```shell
-go run quickStart.go 或 go run quickStart.go start
+go run stage.go 或 go run stage.go start
 ```
 
 #### 后台运行
 ```shell
-go  go run quickStart.go start -d
+go  go run stage.go start -d
 ```
 
 #### 停止
 ```shell
-go run quickStart.go stop
+go run stage.go stop
 ```
 
 #### 帮助
 ```shell
-go run quickStart.go help
+go run stage.go help
 ```
 
 ## 自定义命令
@@ -176,7 +176,7 @@ func main() {
 
 执行命令
 ```shell
-go run command.go length
+go run stage.go length
 ```
 结果为
 
