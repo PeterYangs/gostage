@@ -18,7 +18,7 @@ func main() {
 		RunUser: "nginx",
 	})
 
-	g.StartFunc(func(st *gostage.Stage) error {
+	s := g.StartFunc(func(request *gostage.Request) (string, error) {
 
 		index := 0
 
@@ -26,19 +26,19 @@ func main() {
 
 			select {
 
-			case <-st.GetCxt().Done():
+			case <-request.GetCxt().Done():
 
-				return nil
+				return "", nil
 
 			default:
 
 				time.Sleep(1 * time.Second)
 
-				fmt.Println(1111111111)
+				fmt.Println(request.GetFlag("file"))
 
 				index++
 
-				st.Set("index", cast.ToString(index))
+				request.Set("index", cast.ToString(index))
 
 			}
 
@@ -46,16 +46,18 @@ func main() {
 
 	})
 
-	s := g.AddCommand("status", "当前进度.", func(request *gostage.Request) (string, error) {
+	s.Flag("file", "文件路径.").Short('f')
 
-		return request.Get("index") + " flag(path:" + request.GetFlag("path") + ",name:" + request.GetFlag("name") + ") arg(filename:" + request.GetArg("filename") + ")", nil
+	g.AddCommand("status", "当前进度.", func(request *gostage.Request) (string, error) {
+
+		return request.Get("index"), nil
 	})
 
-	s.Flag("path", "文件地址.")
-
-	s.Flag("name", "姓名.")
-
-	s.Arg("filename", "文件名称.").Required()
+	//s.Flag("path", "文件地址.")
+	//
+	//s.Flag("name", "姓名.")
+	//
+	//s.Arg("filename", "文件名称.").Required()
 
 	err := g.Run()
 

@@ -29,7 +29,7 @@ type Stage struct {
 	cancel    context.CancelFunc
 	server    *Server
 	list      map[string]*item
-	startFunc func(st *Stage) error
+	startFunc func(request *Request) (string, error)
 	wait      sync.WaitGroup
 	lock      sync.Mutex
 	data      map[string]string
@@ -63,15 +63,13 @@ type Request struct {
 	flags map[string]string
 	args  map[string]string
 	st    *Stage
-	conn  net.Conn
-	lock  sync.Mutex
+	//conn  net.Conn
+	lock sync.Mutex
 }
 
-func NewRequest(st *Stage, name string, flags map[string]string, args map[string]string, conn net.Conn) *Request {
+func NewRequest(st *Stage, name string, flags map[string]string, args map[string]string) *Request {
 
-	//syscall.Access
-
-	return &Request{name: name, flags: flags, args: args, st: st, conn: conn, lock: sync.Mutex{}}
+	return &Request{name: name, flags: flags, args: args, st: st, lock: sync.Mutex{}}
 }
 
 func (request *Request) Get(key string) string {
@@ -114,6 +112,11 @@ func (request *Request) GetArgs() map[string]string {
 	return request.args
 }
 
+func (request *Request) GetCxt() context.Context {
+
+	return request.st.GetCxt()
+}
+
 func NewItem(fun func(request *Request) (string, error), st *Stage, help string) *item {
 
 	return &item{fun: fun, st: st, help: help, flags: []*Flag{}, args: []*Arg{}}
@@ -143,6 +146,8 @@ type Flag struct {
 	value    string
 	help     string
 	required bool
+	short    rune
+	isBool   bool
 }
 
 func NewFlag(name string, help string) *Flag {
@@ -153,6 +158,22 @@ func NewFlag(name string, help string) *Flag {
 func (flag *Flag) Required() *Flag {
 
 	flag.required = true
+
+	return flag
+
+}
+
+func (flag *Flag) Short(name rune) *Flag {
+
+	flag.short = name
+
+	return flag
+
+}
+
+func (flag *Flag) Bool() *Flag {
+
+	flag.isBool = true
 
 	return flag
 
@@ -227,15 +248,15 @@ func (st *Stage) AddCommand(param string, help string, f func(request *Request) 
 
 }
 
-func (st *Stage) StartFunc(f func(st *Stage) error) {
+func (st *Stage) StartFunc(f func(request *Request) (string, error)) *item {
 
-	st.startFunc = func(st *Stage) error {
+	st.startFunc = func(request *Request) (string, error) {
 
 		sErr := st.savePid()
 
 		if sErr != nil {
 
-			return errors.New("记录pid失败:" + sErr.Error())
+			return "", errors.New("记录pid失败:" + sErr.Error())
 		}
 
 		defer os.Remove(st.getRunPidName())
@@ -272,6 +293,8 @@ func (st *Stage) StartFunc(f func(st *Stage) error) {
 
 			switch param {
 
+			case "start":
+
 			case "stop":
 
 				st.cancel()
@@ -282,9 +305,9 @@ func (st *Stage) StartFunc(f func(st *Stage) error) {
 
 					if param == s {
 
-						request := NewRequest(st, param, flags, args, conn)
+						rt := NewRequest(st, param, flags, args)
 
-						msg, cErr := f2.fun(request)
+						msg, cErr := f2.fun(rt)
 
 						if cErr != nil {
 
@@ -308,16 +331,27 @@ func (st *Stage) StartFunc(f func(st *Stage) error) {
 
 		if err != nil {
 
-			return err
+			return "", err
 		}
 
 		defer st.cancel()
 
-		err = f(st)
+		//rt := NewRequest(st, "start", startFlags, startArgs, startConn)
 
-		return err
+		return f(request)
+
+		//return "", err
 
 	}
+
+	i := NewItem(st.startFunc, st, "启动服务.")
+
+	i.Flag("daemon", "后台运行.").Short('d').Bool()
+
+	st.list["start"] = i
+
+	return i
+
 }
 
 func (st *Stage) Set(key string, value string) {
@@ -363,6 +397,30 @@ func (st *Stage) permissionCheck() {
 
 }
 
+func (st *Stage) getStartRequest(app *kingpin.Application) *Request {
+
+	flags := make(map[string]string)
+	args := make(map[string]string)
+
+	startItem := st.list["start"]
+
+	//参数绑定
+	for i2, flag := range startItem.flags {
+
+		flags[flag.name] = app.GetCommand("start").Model().Flags[i2].String()
+
+	}
+
+	for i2, arg := range startItem.args {
+
+		args[arg.name] = app.GetCommand("start").Model().Args[i2].String()
+
+	}
+
+	return NewRequest(st, "start", flags, args)
+
+}
+
 func (st *Stage) Run() error {
 
 	st.permissionCheck()
@@ -372,15 +430,9 @@ func (st *Stage) Run() error {
 	app := kingpin.New(args[0], st.appDesc)
 
 	//启动
-	start := app.Command("start", "启动服务.")
-
-	start.Flag("daemon", "后台运行.").Short('d').Bool()
-
-	//停止
-	app.Command("stop", "停止运行.")
-
-	//守护进程
-	app.Command("daemon", "守护进程").Hidden()
+	//start := app.Command("start", "启动服务.")
+	//
+	//start.Flag("daemon", "后台运行.").Short('d').Bool()
 
 	//绑定自定义命令
 	for s, i := range st.list {
@@ -411,18 +463,41 @@ func (st *Stage) Run() error {
 				fg.Required()
 			}
 
-			fg.String()
+			if flag.short != 0 {
+
+				fg.Short(flag.short)
+			}
+
+			if flag.isBool {
+
+				fg.Bool()
+
+			} else {
+
+				fg.String()
+			}
+
 		}
 
 	}
+
+	//停止
+	app.Command("stop", "停止运行.")
+
+	//守护进程
+	app.Command("daemon", "守护进程").Hidden()
 
 	if len(args) == 1 {
 
 		if st.startFunc != nil {
 
-			err := st.startFunc(st)
+			//NewItem()
+
+			res, err := st.startFunc(st.getStartRequest(app))
 
 			st.wait.Wait()
+
+			fmt.Println(res)
 
 			fmt.Println("finish!!!")
 
@@ -461,45 +536,12 @@ func (st *Stage) Run() error {
 				cErr := cmd.StartNoWaitOutErr()
 
 				time.Sleep(1 * time.Second)
-				//go func(gg *gcmd2.Gcmd2) {
-				//
-				//	r, e := gg.GetOutPipe()
-				//
-				//	if e != nil {
-				//
-				//		fmt.Println(e)
-				//
-				//		return
-				//	}
-				//
-				//	res := ""
-				//
-				//	b := make([]byte, 1024)
-				//	for {
-				//		n, rErr := r.Read(b)
-				//
-				//		if rErr != nil {
-				//
-				//			fmt.Println(rErr)
-				//
-				//			break
-				//		}
-				//
-				//		res += string(b[:n])
-				//
-				//	}
-				//
-				//	fmt.Println(res, "----------")
-				//
-				//}(cmd)
-				//
-				//time.Sleep(1 * time.Second)
 
 				return cErr
 
 			}
 
-			err := st.startFunc(st)
+			res, err := st.startFunc(st.getStartRequest(app))
 
 			if err != nil {
 
@@ -507,6 +549,8 @@ func (st *Stage) Run() error {
 			}
 
 			st.wait.Wait()
+
+			fmt.Println(res)
 
 			fmt.Println("finish!!!")
 

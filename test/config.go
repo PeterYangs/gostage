@@ -19,14 +19,14 @@ func main() {
 	})
 
 	//绑定主服务逻辑
-	g.StartFunc(func(st *gostage.Stage) error {
+	g.StartFunc(func(request *gostage.Request) (string, error) {
 
 		//打开文件
 		file, err := os.OpenFile("word.txt", os.O_CREATE|os.O_RDWR, 0644)
 
 		if err != nil {
 
-			return err
+			return "", err
 		}
 
 		//计数
@@ -38,9 +38,9 @@ func main() {
 
 			select {
 
-			case <-st.GetCxt().Done():
+			case <-request.GetCxt().Done():
 
-				return nil
+				return "", nil
 
 			default:
 
