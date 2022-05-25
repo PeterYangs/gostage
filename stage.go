@@ -28,7 +28,7 @@ type Stage struct {
 	ctx       context.Context
 	cancel    context.CancelFunc
 	server    *Server
-	list      map[string]*item
+	list      []*item
 	startFunc func(request *Request) (string, error)
 	wait      sync.WaitGroup
 	lock      sync.Mutex
@@ -59,7 +59,7 @@ func NewStage(cxt context.Context) *Stage {
 
 	ct, cancel := context.WithCancel(cxt)
 
-	return &Stage{ctx: ct, cancel: cancel, wait: sync.WaitGroup{}, lock: sync.Mutex{}, data: make(map[string]string, 0), list: make(map[string]*item), config: config}
+	return &Stage{ctx: ct, cancel: cancel, wait: sync.WaitGroup{}, lock: sync.Mutex{}, data: make(map[string]string, 0), list: make([]*item, 0), config: config}
 }
 
 func (st *Stage) LoadConfig(config Config) {
@@ -90,9 +90,9 @@ func (st *Stage) LoadConfig(config Config) {
 
 func (st *Stage) AddCommand(param string, help string, f func(request *Request) (string, error)) *item {
 
-	i := NewItem(f, st, help)
+	i := NewItem(param, f, st, help)
 
-	st.list[param] = i
+	st.list = append(st.list, i)
 
 	return i
 
@@ -151,9 +151,9 @@ func (st *Stage) StartFunc(f func(request *Request) (string, error)) *item {
 
 			default:
 
-				for s, f2 := range st.list {
+				for _, f2 := range st.list {
 
-					if param == s {
+					if param == f2.name {
 
 						rt := NewRequest(st, param, flags, args)
 
@@ -186,19 +186,15 @@ func (st *Stage) StartFunc(f func(request *Request) (string, error)) *item {
 
 		defer st.cancel()
 
-		//rt := NewRequest(st, "start", startFlags, startArgs, startConn)
-
 		return f(request)
-
-		//return "", err
 
 	}
 
-	i := NewItem(st.startFunc, st, "启动服务.")
+	i := NewItem("start", st.startFunc, st, "启动服务.")
 
 	i.Flag("daemon", "后台运行.").Short('d').Bool()
 
-	st.list["start"] = i
+	st.list = append(st.list, i)
 
 	return i
 
@@ -252,7 +248,7 @@ func (st *Stage) getStartRequest(app *kingpin.Application) *Request {
 	flags := make(map[string]string)
 	args := make(map[string]string)
 
-	startItem := st.list["start"]
+	startItem, _ := st.getItemByName("start")
 
 	//参数绑定
 	for i2, flag := range startItem.flags {
@@ -285,9 +281,9 @@ func (st *Stage) Run() error {
 	//start.Flag("daemon", "后台运行.").Short('d').Bool()
 
 	//绑定自定义命令
-	for s, i := range st.list {
+	for _, i := range st.list {
 
-		cd := app.Command(s, i.help)
+		cd := app.Command(i.name, i.help)
 
 		for _, arg := range i.args {
 
@@ -368,18 +364,14 @@ func (st *Stage) Run() error {
 
 				sysType := runtime.GOOS
 
-				var cmd *gcmd2.Gcmd2
+				cmd := gcmd2.NewCommand(args[0]+" daemon", context.TODO())
 
 				runUser := st.config.RunUser
 
 				if sysType == `linux` && runUser != "nobody" && runUser != "" {
 
-					//以其他用户运行服务，源命令(sudo -u nginx ./main start)
-					cmd = gcmd2.NewCommand("sudo -u "+runUser+" "+args[0]+" daemon"+" ", context.TODO())
-
-				} else {
-
-					cmd = gcmd2.NewCommand(args[0]+" daemon", context.TODO())
+					//以其他用户运行服务
+					cmd.SetUser(runUser)
 
 				}
 
@@ -492,18 +484,16 @@ func (st *Stage) Run() error {
 
 		findArgs := false
 
-		for s, i := range st.list {
+		for _, i := range st.list {
 
-			if args[1] == s {
+			if args[1] == i.name {
 
 				findArgs = true
 
 				c := NewClient(st)
 
-				//fmt.Println(app.GetCommand(s).Model().Flags)
-
 				d := data{
-					Name:  s,
+					Name:  i.name,
 					Flags: map[string]string{},
 					Args:  map[string]string{},
 				}
@@ -511,13 +501,13 @@ func (st *Stage) Run() error {
 				//参数绑定
 				for i2, flag := range i.flags {
 
-					d.Flags[flag.name] = app.GetCommand(s).Model().Flags[i2].String()
+					d.Flags[flag.name] = app.GetCommand(i.name).Model().Flags[i2].String()
 
 				}
 
 				for i2, arg := range i.args {
 
-					d.Args[arg.name] = app.GetCommand(s).Model().Args[i2].String()
+					d.Args[arg.name] = app.GetCommand(i.name).Model().Args[i2].String()
 
 				}
 
@@ -864,4 +854,18 @@ func (st *Stage) pathDeal(path string) error {
 	}()
 
 	return nil
+}
+
+func (st *Stage) getItemByName(name string) (*item, error) {
+
+	for _, i := range st.list {
+
+		if i.name == name {
+
+			return i, nil
+		}
+
+	}
+
+	return nil, errors.New("no found")
 }

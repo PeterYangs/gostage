@@ -1,5 +1,5 @@
-github.com/PeterYangs/gcmd2 v0.0.7 h1:QnybcA6/IBzLh3yViqQbKCGAWGntH/BgF5RjK4Lw/Ww=
-github.com/PeterYangs/gcmd2 v0.0.7/go.mod h1:xuuql5mIrLbEJ3iiF0qNRy5lJj1C16xR+ENylaMTv24=
+github.com/PeterYangs/gcmd2 v0.0.8 h1:FUmhqsT4qsU4dION+whwRo932b0kswo7gOPunA3jZ2Y=
+github.com/PeterYangs/gcmd2 v0.0.8/go.mod h1:xuuql5mIrLbEJ3iiF0qNRy5lJj1C16xR+ENylaMTv24=
 github.com/PeterYangs/tools v0.2.40 h1:AP3ZijnFzCJw7sfzoZEaJkHPka+Xgoj+3JO76v8oW5g=
 github.com/PeterYangs/tools v0.2.40/go.mod h1:DyUXMnXUCN5PUgroBmKnbr11ZC8kYqY60WdnOoMnc+o=
 github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 h1:JYp7IbQjafoB+tBA3gMyHYHrpOtNuDiK/uB5uXxq5wM=

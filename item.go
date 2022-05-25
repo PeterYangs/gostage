@@ -9,9 +9,9 @@ type item struct {
 	help  string
 }
 
-func NewItem(fun func(request *Request) (string, error), st *Stage, help string) *item {
+func NewItem(name string, fun func(request *Request) (string, error), st *Stage, help string) *item {
 
-	return &item{fun: fun, st: st, help: help, flags: []*Flag{}, args: []*Arg{}}
+	return &item{fun: fun, st: st, help: help, flags: []*Flag{}, args: []*Arg{}, name: name}
 }
 
 func (i *item) Flag(name string, help string) *Flag {
