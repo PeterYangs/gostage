@@ -571,6 +571,11 @@ func (st *Stage) GetCxt() context.Context {
 	return st.ctx
 }
 
+func (st *Stage) GetCancel() context.CancelFunc {
+
+	return st.cancel
+}
+
 //------------------------------------------------------------------------------------
 
 func (st *Stage) stop() error {
