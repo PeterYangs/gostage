@@ -34,17 +34,11 @@ func main() {
 
 				time.Sleep(1 * time.Second)
 
-				//fmt.Println(request.GetFlag("file"))
-
 				index++
 
-				fmt.Println(index)
+				fmt.Println(request.GetFlag("file"))
 
 				request.Set("index", cast.ToString(index))
-
-				//cmd := exec.CommandContext(cxt, "/bin/bash", "-c", "")
-
-				//cmd.SysProcAttr.ProcessAttributes.SecurityDescriptor
 
 			}
 

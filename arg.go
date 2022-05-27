@@ -5,11 +5,12 @@ type Arg struct {
 	value    string
 	help     string
 	required bool
+	item     *item
 }
 
-func NewArg(name string, help string) *Arg {
+func NewArg(name string, help string, item *item) *Arg {
 
-	return &Arg{name: name, help: help}
+	return &Arg{name: name, help: help, item: item}
 }
 
 func (arg *Arg) Required() *Arg {

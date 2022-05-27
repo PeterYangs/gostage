@@ -196,6 +196,9 @@ func (st *Stage) StartFunc(f func(request *Request) (string, error)) *item {
 
 	st.list = append(st.list, i)
 
+	//主程序
+	//app.Command("run", "主程序.").Hidden()
+
 	return i
 
 }
@@ -243,27 +246,27 @@ func (st *Stage) permissionCheck() {
 
 }
 
-func (st *Stage) getStartRequest(app *kingpin.Application) *Request {
+func (st *Stage) getRequest(app *kingpin.Application, param string) *Request {
 
 	flags := make(map[string]string)
 	args := make(map[string]string)
 
-	startItem, _ := st.getItemByName("start")
+	startItem, _ := st.getItemByName(param)
 
 	//参数绑定
 	for i2, flag := range startItem.flags {
 
-		flags[flag.name] = app.GetCommand("start").Model().Flags[i2].String()
+		flags[flag.name] = app.GetCommand(param).Model().Flags[i2].String()
 
 	}
 
 	for i2, arg := range startItem.args {
 
-		args[arg.name] = app.GetCommand("start").Model().Args[i2].String()
+		args[arg.name] = app.GetCommand(param).Model().Args[i2].String()
 
 	}
 
-	return NewRequest(st, "start", flags, args)
+	return NewRequest(st, param, flags, args)
 
 }
 
@@ -275,10 +278,45 @@ func (st *Stage) Run() error {
 
 	app := kingpin.New(args[0], st.appDesc)
 
+	//app.Command("run", "主程序.").Hidden()
+
+	startItem, _ := st.getItemByName("start")
+
+	//runItem := clone.Clone(startItem).(*item)
+	//
+	//runItem.name = "run"
+
+	r := &item{
+		fun:   startItem.fun,
+		flags: startItem.flags,
+		args:  startItem.args,
+		name:  "run",
+		st:    st,
+		help:  "",
+		hide:  true,
+	}
+
+	d := &item{
+		fun:   startItem.fun,
+		flags: startItem.flags,
+		args:  startItem.args,
+		name:  "daemon",
+		st:    st,
+		help:  "",
+		hide:  true,
+	}
+
+	st.list = append(st.list, r, d)
+
 	//绑定自定义命令
 	for _, i := range st.list {
 
 		cd := app.Command(i.name, i.help)
+
+		if i.hide {
+
+			cd.Hidden()
+		}
 
 		for _, arg := range i.args {
 
@@ -326,10 +364,7 @@ func (st *Stage) Run() error {
 	app.Command("stop", "停止运行.")
 
 	//守护进程
-	app.Command("daemon", "守护进程").Hidden()
-
-	//主程序
-	app.Command("run", "主程序.").Hidden()
+	//app.Command("daemon", "守护进程").Hidden()
 
 	if len(args) == 1 {
 
@@ -352,7 +387,7 @@ func (st *Stage) Run() error {
 
 			if app.GetCommand("start").GetFlag("daemon").Model().String() == "true" {
 
-				cmd := gcmd2.NewCommand(args[0]+" daemon", context.TODO())
+				cmd := gcmd2.NewCommand(args[0]+" daemon "+tools.Join(" ", args[2:]), context.TODO())
 
 				if runUser != "nobody" && runUser != "" {
 
@@ -411,7 +446,9 @@ func (st *Stage) Run() error {
 
 	case "run":
 
-		res, err := st.startFunc(st.getStartRequest(app))
+		//fmt.Println(app.GetCommand("run").Model().Flags)
+
+		res, err := st.startFunc(st.getRequest(app, "run"))
 
 		if err != nil {
 

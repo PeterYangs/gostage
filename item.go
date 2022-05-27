@@ -1,12 +1,14 @@
 package gostage
 
 type item struct {
-	fun   func(request *Request) (string, error)
-	flags []*Flag
-	args  []*Arg
-	name  string
-	st    *Stage
-	help  string
+	fun      func(request *Request) (string, error)
+	flags    []*Flag
+	args     []*Arg
+	name     string
+	st       *Stage
+	help     string
+	isNormal bool
+	hide     bool
 }
 
 func NewItem(name string, fun func(request *Request) (string, error), st *Stage, help string) *item {
@@ -16,7 +18,7 @@ func NewItem(name string, fun func(request *Request) (string, error), st *Stage,
 
 func (i *item) Flag(name string, help string) *Flag {
 
-	f := NewFlag(name, help)
+	f := NewFlag(name, help, i)
 
 	i.flags = append(i.flags, f)
 
@@ -26,9 +28,21 @@ func (i *item) Flag(name string, help string) *Flag {
 
 func (i *item) Arg(name string, help string) *Arg {
 
-	a := NewArg(name, help)
+	a := NewArg(name, help, i)
 
 	i.args = append(i.args, a)
 
 	return a
+}
+
+func (i *item) IsNormal() {
+
+	i.isNormal = true
+}
+
+func (i *item) Hide() *item {
+
+	i.hide = true
+
+	return i
 }

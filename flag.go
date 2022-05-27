@@ -7,11 +7,12 @@ type Flag struct {
 	required bool
 	short    rune
 	isBool   bool
+	item     *item
 }
 
-func NewFlag(name string, help string) *Flag {
+func NewFlag(name string, help string, item *item) *Flag {
 
-	return &Flag{name: name, help: help}
+	return &Flag{name: name, help: help, item: item}
 }
 
 func (flag *Flag) Required() *Flag {
