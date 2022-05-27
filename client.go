@@ -20,6 +20,13 @@ func NewClient(st *Stage) *Client {
 
 func (c *Client) Send(param string) (string, error) {
 
+	ok, _ := PathExists(c.sockFile)
+
+	if !ok {
+
+		return "", errors.New("未发现sock文件")
+	}
+
 	conn, err := net.Dial("unix", c.sockFile)
 
 	if err != nil {

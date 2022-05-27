@@ -275,11 +275,6 @@ func (st *Stage) Run() error {
 
 	app := kingpin.New(args[0], st.appDesc)
 
-	//启动
-	//start := app.Command("start", "启动服务.")
-	//
-	//start.Flag("daemon", "后台运行.").Short('d').Bool()
-
 	//绑定自定义命令
 	for _, i := range st.list {
 
@@ -333,42 +328,33 @@ func (st *Stage) Run() error {
 	//守护进程
 	app.Command("daemon", "守护进程").Hidden()
 
+	//主程序
+	app.Command("run", "主程序.").Hidden()
+
 	if len(args) == 1 {
 
-		if st.startFunc != nil {
+		args = append(args, "start")
 
-			//NewItem()
-
-			res, err := st.startFunc(st.getStartRequest(app))
-
-			st.wait.Wait()
-
-			fmt.Println(res)
-
-			fmt.Println("finish!!!")
-
-			return err
-
-		}
-
-		return errors.New("启动回调函数未设置")
 	}
 
-	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
+	switch kingpin.MustParse(app.Parse(args[1:])) {
 
 	case "start":
 
 		if st.startFunc != nil {
 
-			if app.GetCommand("start").GetFlag("daemon").Model().String() == "true" {
+			sigs := make(chan os.Signal, 1)
 
-				sysType := runtime.GOOS
+			//退出信号
+			signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+			runUser := st.config.RunUser
+
+			if app.GetCommand("start").GetFlag("daemon").Model().String() == "true" {
 
 				cmd := gcmd2.NewCommand(args[0]+" daemon", context.TODO())
 
-				runUser := st.config.RunUser
-
-				if sysType == `linux` && runUser != "nobody" && runUser != "" {
+				if runUser != "nobody" && runUser != "" {
 
 					//以其他用户运行服务
 					cmd.SetUser(runUser)
@@ -383,24 +369,60 @@ func (st *Stage) Run() error {
 
 			}
 
-			res, err := st.startFunc(st.getStartRequest(app))
+			args[1] = "run"
 
-			if err != nil {
+			cmd := gcmd2.NewCommand(tools.Join(" ", args)+" ", context.TODO())
 
-				return errors.New("启动失败:" + err.Error())
+			if runUser != "nobody" && runUser != "" {
+
+				//以其他用户运行服务
+				cmd.SetUser(runUser)
+
 			}
 
-			st.wait.Wait()
+			go func(s chan os.Signal, c *gcmd2.Gcmd2) {
 
-			fmt.Println(res)
+				select {
 
-			fmt.Println("finish!!!")
+				case <-s:
+
+					_ = c.GetCmd().Process.Signal(syscall.SIGINT)
+
+					break
+
+				}
+
+			}(sigs, cmd)
+
+			st.dealOut(cmd)
+
+			cErr := cmd.StartNotOut()
+
+			if cErr != nil {
+
+				return cErr
+			}
 
 			return nil
 
 		}
 
 		return errors.New("启动回调函数未设置")
+
+	case "run":
+
+		res, err := st.startFunc(st.getStartRequest(app))
+
+		if err != nil {
+
+			return errors.New("启动失败:" + err.Error())
+		}
+
+		st.wait.Wait()
+
+		fmt.Println(res)
+
+		fmt.Println("finish!!!")
 
 	case "stop":
 
@@ -454,7 +476,7 @@ func (st *Stage) Run() error {
 
 		_ = f.Close()
 
-		args[1] = "start"
+		args[1] = "run"
 
 		for {
 
@@ -611,7 +633,7 @@ func (st *Stage) stop() error {
 
 		//非守护进程关闭
 
-		fmt.Println("nice啊")
+		//fmt.Println("nice啊")
 
 		return st.sendStop()
 
