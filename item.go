@@ -1,14 +1,14 @@
 package gostage
 
 type item struct {
-	fun      func(request *Request) (string, error)
-	flags    []*Flag
-	args     []*Arg
-	name     string
-	st       *Stage
-	help     string
-	isNormal bool
-	hide     bool
+	fun       func(request *Request) (string, error)
+	flags     []*Flag
+	args      []*Arg
+	name      string
+	st        *Stage
+	help      string
+	noConnect bool //不连接sock
+	hide      bool
 }
 
 func NewItem(name string, fun func(request *Request) (string, error), st *Stage, help string) *item {
@@ -35,9 +35,9 @@ func (i *item) Arg(name string, help string) *Arg {
 	return a
 }
 
-func (i *item) IsNormal() {
+func (i *item) NoConnect() {
 
-	i.isNormal = true
+	i.noConnect = true
 }
 
 func (i *item) Hide() *item {

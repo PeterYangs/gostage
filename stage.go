@@ -278,13 +278,7 @@ func (st *Stage) Run() error {
 
 	app := kingpin.New(args[0], st.appDesc)
 
-	//app.Command("run", "主程序.").Hidden()
-
 	startItem, _ := st.getItemByName("start")
-
-	//runItem := clone.Clone(startItem).(*item)
-	//
-	//runItem.name = "run"
 
 	r := &item{
 		fun:   startItem.fun,
@@ -446,8 +440,6 @@ func (st *Stage) Run() error {
 
 	case "run":
 
-		//fmt.Println(app.GetCommand("run").Model().Flags)
-
 		res, err := st.startFunc(st.getRequest(app, "run"))
 
 		if err != nil {
@@ -548,6 +540,21 @@ func (st *Stage) Run() error {
 			if args[1] == i.name {
 
 				findArgs = true
+
+				if i.noConnect {
+
+					res, err := i.fun(st.getRequest(app, i.name))
+
+					if err != nil {
+
+						return err
+					}
+
+					fmt.Println(res)
+
+					continue
+
+				}
 
 				c := NewClient(st)
 

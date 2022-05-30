@@ -53,6 +53,11 @@ func main() {
 		return request.Get("index"), nil
 	})
 
+	g.AddCommand("nice", "测试", func(request *gostage.Request) (string, error) {
+
+		return "测试啊", nil
+	}).NoConnect()
+
 	//s.Flag("path", "文件地址.")
 	//
 	//s.Flag("name", "姓名.")
