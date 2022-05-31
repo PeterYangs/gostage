@@ -379,6 +379,9 @@ func (st *Stage) Run() error {
 
 			runUser := st.config.RunUser
 
+			fmt.Println("启动用户：", runUser)
+			fmt.Println("运行平台：", runtime.GOOS)
+
 			if app.GetCommand("start").GetFlag("daemon").Model().String() == "true" {
 
 				cmd := gcmd2.NewCommand(args[0]+" daemon "+tools.Join(" ", args[2:]), context.TODO())
