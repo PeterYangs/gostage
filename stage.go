@@ -16,7 +16,6 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"reflect"
 	"runtime"
 	"runtime/debug"
 	"sync"
@@ -34,7 +33,7 @@ type Stage struct {
 	lock      sync.Mutex
 	data      map[string]string
 	appDesc   string
-	config    Config
+	config    *Config
 }
 
 type Config struct {
@@ -51,7 +50,7 @@ type data struct {
 
 func NewStage(cxt context.Context) *Stage {
 
-	config := Config{
+	config := &Config{
 		RunPath: "run",
 		RunUser: "nobody",
 		LogPath: "logs",
@@ -62,30 +61,52 @@ func NewStage(cxt context.Context) *Stage {
 	return &Stage{ctx: ct, cancel: cancel, wait: sync.WaitGroup{}, lock: sync.Mutex{}, data: make(map[string]string, 0), list: make([]*item, 0), config: config}
 }
 
-func (st *Stage) LoadConfig(config Config) {
+//func (st *Stage) LoadConfig(config Config) {
+//
+//	cos := reflect.ValueOf(config)
+//
+//	cf := reflect.ValueOf(&st.config).Elem()
+//
+//	for i := 0; i < cos.NumField(); i++ {
+//
+//		if !cos.Field(i).IsZero() {
+//
+//			if cf.Field(i).Kind() == reflect.Int {
+//
+//				cf.Field(i).SetInt(cos.Field(i).Int())
+//			}
+//
+//			if cf.Field(i).Kind() == reflect.String {
+//
+//				cf.Field(i).SetString(cos.Field(i).String())
+//			}
+//
+//		}
+//
+//	}
+//
+//}
 
-	cos := reflect.ValueOf(config)
+func (st *Stage) SetRunUser(user string) *Stage {
 
-	cf := reflect.ValueOf(&st.config).Elem()
+	st.config.RunUser = user
 
-	for i := 0; i < cos.NumField(); i++ {
+	return st
 
-		if !cos.Field(i).IsZero() {
+}
 
-			if cf.Field(i).Kind() == reflect.Int {
+func (st *Stage) SetRunPath(runPath string) *Stage {
 
-				cf.Field(i).SetInt(cos.Field(i).Int())
-			}
+	st.config.RunPath = runPath
 
-			if cf.Field(i).Kind() == reflect.String {
+	return st
+}
 
-				cf.Field(i).SetString(cos.Field(i).String())
-			}
+func (st *Stage) SetLogPath(logPath string) *Stage {
 
-		}
+	st.config.LogPath = logPath
 
-	}
-
+	return st
 }
 
 func (st *Stage) AddCommand(param string, help string, f func(request *Request) (string, error)) *item {
@@ -379,8 +400,8 @@ func (st *Stage) Run() error {
 
 			runUser := st.config.RunUser
 
-			fmt.Println("启动用户：", runUser)
-			fmt.Println("运行平台：", runtime.GOOS)
+			//fmt.Println("启动用户：", runUser)
+			//fmt.Println("运行平台：", runtime.GOOS)
 
 			if app.GetCommand("start").GetFlag("daemon").Model().String() == "true" {
 
