@@ -12,13 +12,14 @@ func main() {
 
 	g := gostage.NewStage(context.Background())
 
-	//g.LoadConfig(gostage.Config{
-	//	RunUser: "www",  //守护进程模式的执行用户（仅支持linux平台）
-	//	RunPath: "run",  //运行文件(pid、sock等文件)的存放路径
-	//	LogPath: "logs", //日志文件路径
-	//})
-
+	//执行用户
 	g.SetRunUser("nginx")
+
+	//运行文件(pid、sock等文件)的存放路径
+	g.SetRunPath("run")
+
+	//日志文件路径
+	g.SetLogPath("logs")
 
 	//绑定主服务逻辑
 	g.StartFunc(func(request *gostage.Request) (string, error) {

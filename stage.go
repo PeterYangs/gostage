@@ -61,32 +61,6 @@ func NewStage(cxt context.Context) *Stage {
 	return &Stage{ctx: ct, cancel: cancel, wait: sync.WaitGroup{}, lock: sync.Mutex{}, data: make(map[string]string, 0), list: make([]*item, 0), config: config}
 }
 
-//func (st *Stage) LoadConfig(config Config) {
-//
-//	cos := reflect.ValueOf(config)
-//
-//	cf := reflect.ValueOf(&st.config).Elem()
-//
-//	for i := 0; i < cos.NumField(); i++ {
-//
-//		if !cos.Field(i).IsZero() {
-//
-//			if cf.Field(i).Kind() == reflect.Int {
-//
-//				cf.Field(i).SetInt(cos.Field(i).Int())
-//			}
-//
-//			if cf.Field(i).Kind() == reflect.String {
-//
-//				cf.Field(i).SetString(cos.Field(i).String())
-//			}
-//
-//		}
-//
-//	}
-//
-//}
-
 func (st *Stage) SetRunUser(user string) *Stage {
 
 	st.config.RunUser = user
@@ -217,9 +191,6 @@ func (st *Stage) StartFunc(f func(request *Request) (string, error)) *item {
 
 	st.list = append(st.list, i)
 
-	//主程序
-	//app.Command("run", "主程序.").Hidden()
-
 	return i
 
 }
@@ -293,35 +264,15 @@ func (st *Stage) getRequest(app *kingpin.Application, param string) *Request {
 
 func (st *Stage) Run() error {
 
+	//日志目录和运行目录权限检查
 	st.permissionCheck()
 
 	args := os.Args
 
 	app := kingpin.New(args[0], st.appDesc)
 
-	startItem, _ := st.getItemByName("start")
-
-	r := &item{
-		fun:   startItem.fun,
-		flags: startItem.flags,
-		args:  startItem.args,
-		name:  "run",
-		st:    st,
-		help:  "",
-		hide:  true,
-	}
-
-	d := &item{
-		fun:   startItem.fun,
-		flags: startItem.flags,
-		args:  startItem.args,
-		name:  "daemon",
-		st:    st,
-		help:  "",
-		hide:  true,
-	}
-
-	st.list = append(st.list, r, d)
+	//内置命令
+	st.requiredCommand()
 
 	//绑定自定义命令
 	for _, i := range st.list {
@@ -378,9 +329,6 @@ func (st *Stage) Run() error {
 	//停止
 	app.Command("stop", "停止运行.")
 
-	//守护进程
-	//app.Command("daemon", "守护进程").Hidden()
-
 	if len(args) == 1 {
 
 		args = append(args, "start")
@@ -399,9 +347,6 @@ func (st *Stage) Run() error {
 			signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 			runUser := st.config.RunUser
-
-			//fmt.Println("启动用户：", runUser)
-			//fmt.Println("运行平台：", runtime.GOOS)
 
 			if app.GetCommand("start").GetFlag("daemon").Model().String() == "true" {
 
@@ -433,6 +378,7 @@ func (st *Stage) Run() error {
 
 			}
 
+			//给子进程发送退出信号
 			go func(s chan os.Signal, c *gcmd2.Gcmd2) {
 
 				select {
@@ -649,8 +595,6 @@ func (st *Stage) GetCancel() context.CancelFunc {
 func (st *Stage) stop() error {
 
 	isD, _ := PathExists(st.getDaemonName())
-
-	//fmt.Println(st.getDaemonName())
 
 	if isD {
 
@@ -963,4 +907,31 @@ func (st *Stage) getItemByName(name string) (*item, error) {
 	}
 
 	return nil, errors.New("no found")
+}
+
+func (st *Stage) requiredCommand() {
+
+	startItem, _ := st.getItemByName("start")
+
+	r := &item{
+		fun:   startItem.fun,
+		flags: startItem.flags,
+		args:  startItem.args,
+		name:  "run",
+		st:    st,
+		help:  "",
+		hide:  true,
+	}
+
+	d := &item{
+		fun:   startItem.fun,
+		flags: startItem.flags,
+		args:  startItem.args,
+		name:  "daemon",
+		st:    st,
+		help:  "",
+		hide:  true,
+	}
+
+	st.list = append(st.list, r, d)
 }

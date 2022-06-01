@@ -277,7 +277,7 @@ go run stage.go length peter --path 123.png
 ![](argFlag.jpg)
 
 
-## 配置项加载
+## 设置
 
 ```go
 package main
@@ -294,11 +294,14 @@ func main() {
 
 	g := gostage.NewStage(context.Background())
 
-	g.LoadConfig(gostage.Config{
-		RunUser: "www",  //守护进程模式的执行用户（仅支持linux平台）
-		RunPath: "run",  //运行文件(pid、sock等文件)的存放路径
-		LogPath: "logs", //日志文件路径
-	})
+	//执行用户
+	g.SetRunUser("nginx")
+
+	//运行文件(pid、sock等文件)的存放路径
+	g.SetRunPath("run")
+
+	//日志文件路径
+	g.SetLogPath("logs")
 
 	//绑定主服务逻辑
 	g.StartFunc(func(request *gostage.Request) (string, error) {
@@ -308,7 +311,7 @@ func main() {
 
 		if err != nil {
 
-			return "",err
+			return "", err
 		}
 
 		//计数
@@ -322,7 +325,7 @@ func main() {
 
 			case <-request.GetCxt().Done():
 
-				return "",nil
+				return "", nil
 
 			default:
 
