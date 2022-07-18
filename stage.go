@@ -37,9 +37,10 @@ type Stage struct {
 }
 
 type Config struct {
-	RunPath string //pid存放路径
-	RunUser string //运行用户
-	LogPath string //日志存放路径
+	RunPath  string //pid存放路径
+	RunUser  string //运行用户
+	LogPath  string //日志存放路径
+	SockName string //sock文件名称
 }
 
 type data struct {
@@ -51,14 +52,23 @@ type data struct {
 func NewStage(cxt context.Context) *Stage {
 
 	config := &Config{
-		RunPath: "run",
-		RunUser: "nobody",
-		LogPath: "logs",
+		RunPath:  "run",
+		RunUser:  "nobody",
+		LogPath:  "logs",
+		SockName: "temp",
 	}
 
 	ct, cancel := context.WithCancel(cxt)
 
-	return &Stage{ctx: ct, cancel: cancel, wait: sync.WaitGroup{}, lock: sync.Mutex{}, data: make(map[string]string, 0), list: make([]*item, 0), config: config}
+	return &Stage{
+		ctx:    ct,
+		cancel: cancel,
+		wait:   sync.WaitGroup{},
+		lock:   sync.Mutex{},
+		data:   make(map[string]string, 0),
+		list:   make([]*item, 0),
+		config: config,
+	}
 }
 
 func (st *Stage) SetRunUser(user string) *Stage {
@@ -688,7 +698,14 @@ func (st *Stage) getRunPidName() string {
 
 func (st *Stage) getSockName() string {
 
-	return st.config.RunPath + "/temp.sock"
+	return st.config.RunPath + "/" + st.config.SockName + ".sock"
+}
+
+func (st *Stage) SetSockName(name string) *Stage {
+
+	st.config.SockName = name
+
+	return st
 }
 
 func (st *Stage) getDaemonName() string {
