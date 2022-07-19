@@ -16,8 +16,10 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"runtime/debug"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -34,13 +36,14 @@ type Stage struct {
 	data      map[string]string
 	appDesc   string
 	config    *Config
+	appName   string
 }
 
 type Config struct {
-	RunPath  string //pid存放路径
-	RunUser  string //运行用户
-	LogPath  string //日志存放路径
-	SockName string //sock文件名称
+	RunPath string //pid存放路径
+	RunUser string //运行用户
+	LogPath string //日志存放路径
+
 }
 
 type data struct {
@@ -51,23 +54,25 @@ type data struct {
 
 func NewStage(cxt context.Context) *Stage {
 
+	args := os.Args
+
 	config := &Config{
-		RunPath:  "run",
-		RunUser:  "nobody",
-		LogPath:  "logs",
-		SockName: "temp",
+		RunPath: "run",
+		RunUser: "nobody",
+		LogPath: "logs",
 	}
 
 	ct, cancel := context.WithCancel(cxt)
 
 	return &Stage{
-		ctx:    ct,
-		cancel: cancel,
-		wait:   sync.WaitGroup{},
-		lock:   sync.Mutex{},
-		data:   make(map[string]string, 0),
-		list:   make([]*item, 0),
-		config: config,
+		ctx:     ct,
+		cancel:  cancel,
+		wait:    sync.WaitGroup{},
+		lock:    sync.Mutex{},
+		data:    make(map[string]string, 0),
+		list:    make([]*item, 0),
+		config:  config,
+		appName: strings.Replace(filepath.Base(args[0]), filepath.Ext(filepath.Base(args[0])), "", 1),
 	}
 }
 
@@ -693,24 +698,34 @@ func (st *Stage) sendStop() error {
 
 func (st *Stage) getRunPidName() string {
 
-	return st.config.RunPath + "/run.pid"
+	return st.config.RunPath + "/" + st.appName + "Run.pid"
 }
 
 func (st *Stage) getSockName() string {
 
-	return st.config.RunPath + "/" + st.config.SockName + ".sock"
+	return st.config.RunPath + "/" + st.appName + ".sock"
 }
 
-func (st *Stage) SetSockName(name string) *Stage {
-
-	st.config.SockName = name
-
-	return st
-}
+//func (st *Stage) SetSockName(name string) *Stage {
+//
+//	st.config.SockName = name
+//
+//	return st
+//}
 
 func (st *Stage) getDaemonName() string {
 
-	return st.config.RunPath + "/daemon.pid"
+	return st.config.RunPath + "/" + st.appName + "Daemon.pid"
+}
+
+func (st *Stage) getOutLogName() string {
+
+	return st.config.LogPath + "/" + st.appName + "Log.log"
+}
+
+func (st *Stage) getOutErrName() string {
+
+	return st.config.LogPath + "/" + st.appName + "Err.log"
 }
 
 //记录主程序pid
@@ -751,16 +766,6 @@ func (st *Stage) dealOut(g *gcmd2.Gcmd2) {
 	go st.out(outIo)
 	go st.err(errIo)
 
-}
-
-func (st *Stage) getOutLogName() string {
-
-	return st.config.LogPath + "/outLog.log"
-}
-
-func (st *Stage) getOutErrName() string {
-
-	return st.config.LogPath + "/outErr.log"
 }
 
 func (st *Stage) out(stt io.ReadCloser) {
@@ -807,6 +812,8 @@ func (st *Stage) err(stt io.ReadCloser) {
 	defer stt.Close()
 
 	buf := make([]byte, 1024)
+
+	//fmt.Println(st.getOutErrName(), "-------------------------")
 
 	f, fErr := os.OpenFile(st.getOutErrName(), os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
 
