@@ -20,6 +20,8 @@ func main() {
 
 		index := 0
 
+		fmt.Println("启动！")
+
 		for {
 
 			select {
@@ -34,7 +36,7 @@ func main() {
 
 				index++
 
-				fmt.Println(request.GetFlag("file"))
+				//fmt.Println(request.GetFlag("file"))
 
 				request.Set("index", cast.ToString(index))
 
@@ -48,7 +50,9 @@ func main() {
 
 	g.AddCommand("status", "当前进度.", func(request *gostage.Request) (string, error) {
 
-		return request.Get("index"), nil
+		index, _ := request.Get("index")
+
+		return index, nil
 	})
 
 	g.AddCommand("nice", "测试", func(request *gostage.Request) (string, error) {

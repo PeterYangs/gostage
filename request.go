@@ -19,7 +19,7 @@ func NewRequest(st *Stage, name string, flags map[string]string, args map[string
 	return &Request{name: name, flags: flags, args: args, st: st, lock: sync.Mutex{}}
 }
 
-func (request *Request) Get(key string) string {
+func (request *Request) Get(key string) (string, bool) {
 
 	return request.st.Get(key)
 }
@@ -27,6 +27,16 @@ func (request *Request) Get(key string) string {
 func (request *Request) Set(key string, value string) {
 
 	request.st.Set(key, value)
+}
+
+func (request *Request) GetObj(key any) (any, bool) {
+
+	return request.st.GetObj(key)
+}
+
+func (request *Request) SetObj(key any, value any) {
+
+	request.st.SetObj(key, value)
 }
 
 func (request *Request) GetFlag(key string) string {

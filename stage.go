@@ -33,10 +33,11 @@ type Stage struct {
 	startFunc func(request *Request) (string, error)
 	wait      sync.WaitGroup
 	lock      sync.Mutex
-	data      map[string]string
+	data      map[string]string //常驻存储变量
 	appDesc   string
 	config    *Config
 	appName   string
+	obj       sync.Map
 }
 
 type Config struct {
@@ -73,6 +74,7 @@ func NewStage(cxt context.Context) *Stage {
 		list:    make([]*item, 0),
 		config:  config,
 		appName: strings.Replace(filepath.Base(args[0]), filepath.Ext(filepath.Base(args[0])), "", 1),
+		obj:     sync.Map{},
 	}
 }
 
@@ -220,9 +222,21 @@ func (st *Stage) Set(key string, value string) {
 
 }
 
-func (st *Stage) Get(key string) string {
+func (st *Stage) Get(key string) (string, bool) {
 
-	return st.data[key]
+	v, ok := st.data[key]
+
+	return v, ok
+}
+
+func (st *Stage) SetObj(key any, value any) {
+
+	st.obj.Store(key, value)
+}
+
+func (st *Stage) GetObj(key any) (any, bool) {
+
+	return st.obj.Load(key)
 }
 
 func (st *Stage) setAppDesc(desc string) *Stage {

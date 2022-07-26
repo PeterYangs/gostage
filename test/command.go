@@ -60,7 +60,9 @@ func main() {
 
 	g.AddCommand("length", "获取当前计数.", func(request *gostage.Request) (string, error) {
 
-		return "当前计数为：" + request.Get("length"), nil
+		length, _ := request.Get("length")
+
+		return "当前计数为：" + length, nil
 	})
 
 	err := g.Run()
