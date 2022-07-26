@@ -229,6 +229,16 @@ func (st *Stage) Get(key string) (string, bool) {
 	return v, ok
 }
 
+func (st *Stage) Remove(key string) {
+
+	st.lock.Lock()
+
+	defer st.lock.Unlock()
+
+	delete(st.data, key)
+
+}
+
 func (st *Stage) SetObj(key any, value any) {
 
 	st.obj.Store(key, value)
@@ -239,7 +249,13 @@ func (st *Stage) GetObj(key any) (any, bool) {
 	return st.obj.Load(key)
 }
 
-func (st *Stage) setAppDesc(desc string) *Stage {
+func (st *Stage) RemoveObj(key any) {
+
+	st.obj.Delete(key)
+}
+
+// SetAppDesc 设置应用描述
+func (st *Stage) SetAppDesc(desc string) *Stage {
 
 	st.appDesc = desc
 

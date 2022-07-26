@@ -29,6 +29,11 @@ func (request *Request) Set(key string, value string) {
 	request.st.Set(key, value)
 }
 
+func (request *Request) Remove(key string) {
+
+	request.st.Remove(key)
+}
+
 func (request *Request) GetObj(key any) (any, bool) {
 
 	return request.st.GetObj(key)
@@ -37,6 +42,11 @@ func (request *Request) GetObj(key any) (any, bool) {
 func (request *Request) SetObj(key any, value any) {
 
 	request.st.SetObj(key, value)
+}
+
+func (request *Request) RemoveObj(key any) {
+
+	request.st.RemoveObj(key)
 }
 
 func (request *Request) GetFlag(key string) string {
