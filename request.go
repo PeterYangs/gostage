@@ -83,3 +83,9 @@ func (request *Request) GetCxt() context.Context {
 
 	return request.st.GetCxt()
 }
+
+// StopDaemonProcess 关闭守护进程
+func (request *Request) StopDaemonProcess() error {
+
+	return request.st.StopDaemonProcess()
+}

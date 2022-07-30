@@ -470,30 +470,7 @@ func (st *Stage) Run() error {
 
 	case "stop":
 
-		fmt.Println("stopping")
-
-		err := st.stop()
-
-		if err != nil {
-
-			return err
-		}
-
-		//检测pid文件是否存在来判断程序是否还在运行
-		for {
-
-			time.Sleep(300 * time.Millisecond)
-
-			ok, _ := PathExists(st.getRunPidName())
-
-			if ok == false {
-
-				fmt.Println("stopped")
-
-				return nil
-			}
-
-		}
+		return st.StopApp()
 
 	case "daemon":
 
@@ -635,6 +612,91 @@ func (st *Stage) GetCancel() context.CancelFunc {
 	return st.cancel
 }
 
+// StopApp 停止应用运行
+func (st *Stage) StopApp() error {
+
+	fmt.Println("stopping")
+
+	err := st.stop()
+
+	if err != nil {
+
+		return err
+	}
+
+	//检测pid文件是否存在来判断程序是否还在运行
+	for {
+
+		time.Sleep(300 * time.Millisecond)
+
+		ok, _ := PathExists(st.getRunPidName())
+
+		if ok == false {
+
+			fmt.Println("stopped")
+
+			return nil
+		}
+
+	}
+}
+
+// StopDaemonProcess 关闭守护进程
+func (st *Stage) StopDaemonProcess() error {
+
+	isD, _ := PathExists(st.getDaemonName())
+
+	if isD {
+
+		//守护进程关闭
+		sysType := runtime.GOOS
+
+		dPid, err := read.Open(st.getDaemonName()).Read()
+
+		if err != nil {
+
+			return err
+
+		}
+
+		if sysType == `windows` {
+
+			if st.createWindowsKill() {
+
+				g := gcmd2.NewCommand("kill.exe -SIGINT "+string(dPid), context.Background())
+
+				err := g.Start()
+
+				if err != nil {
+
+					return err
+				}
+
+			} else {
+
+				return errors.New("windows生成kill.exe失败")
+			}
+
+		}
+
+		if sysType == `linux` {
+
+			g := gcmd2.NewCommand("kill  "+string(dPid), context.Background())
+
+			err := g.Start()
+
+			if err != nil {
+
+				return err
+			}
+
+		}
+
+	}
+
+	return nil
+}
+
 //------------------------------------------------------------------------------------
 
 func (st *Stage) stop() error {
@@ -695,13 +757,12 @@ func (st *Stage) stop() error {
 
 		//非守护进程关闭
 
-		//fmt.Println("nice啊")
-
 		return st.sendStop()
 
 	}
 
 	return nil
+
 }
 
 func (st *Stage) sendStop() error {
