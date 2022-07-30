@@ -384,6 +384,13 @@ func (st *Stage) Run() error {
 
 	case "start":
 
+		isRun, _ := PathExists(st.getSockName())
+
+		if isRun {
+
+			return errors.New("正在运行，请不要重复运行！")
+		}
+
 		if st.startFunc != nil {
 
 			sigs := make(chan os.Signal, 1)

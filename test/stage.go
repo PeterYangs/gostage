@@ -14,7 +14,7 @@ func main() {
 
 	g := gostage.NewStage(cxt)
 
-	g.SetRunUser("nginx")
+	//g.SetRunUser("nginx")
 
 	s := g.StartFunc(func(request *gostage.Request) (string, error) {
 
