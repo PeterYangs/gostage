@@ -38,7 +38,7 @@ func (s *Server) Start() error {
 		return err
 	}
 
-	s.st.wait.Add(1)
+	//s.st.wait.Add(1)
 
 	s.listen = listen
 
@@ -48,11 +48,11 @@ func (s *Server) Start() error {
 
 		case <-s.ctx.Done():
 
-			s.listen.Close()
+			//s.listen.Close()
+			//
+			//os.Remove(s.sockFile)
 
-			os.Remove(s.sockFile)
-
-			s.st.wait.Done()
+			//s.st.wait.Done()
 
 			return
 
@@ -153,6 +153,13 @@ func (s *Server) read(conn net.Conn) {
 
 		line, err := reader.ReadSlice('\n')
 		if err != nil {
+			break
+		}
+
+		if string(line) == "ping" {
+
+			conn.Write([]byte("ping"))
+
 			break
 		}
 

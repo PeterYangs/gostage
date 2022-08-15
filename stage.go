@@ -121,7 +121,18 @@ func (st *Stage) StartFunc(f func(request *Request) (string, error)) *item {
 			return "", errors.New("记录pid失败:" + sErr.Error())
 		}
 
-		defer os.Remove(st.getRunPidName())
+		defer func() {
+
+			os.Remove(st.getRunPidName())
+
+			if st.server.listen != nil {
+
+				st.server.listen.Close()
+			}
+
+			os.Remove(st.getSockName())
+
+		}()
 
 		sigs := make(chan os.Signal, 1)
 
@@ -130,7 +141,7 @@ func (st *Stage) StartFunc(f func(request *Request) (string, error)) *item {
 			select {
 			case <-sigs:
 
-				fmt.Println("检查到退出信号")
+				fmt.Println("检查到退出信号", tools.Date("Y-m-d H:i:s", time.Now().Unix()))
 
 				sta.cancel()
 
@@ -148,6 +159,8 @@ func (st *Stage) StartFunc(f func(request *Request) (string, error)) *item {
 		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 		serv := NewServer(st)
+
+		st.server = serv
 
 		serv.Callback(func(server *Server, param string, conn net.Conn, flags map[string]string, args map[string]string) {
 
@@ -388,7 +401,22 @@ func (st *Stage) Run() error {
 
 		if isRun {
 
-			return errors.New("正在运行，请不要重复运行！")
+			conn, err := net.Dial("unix", st.getSockName())
+
+			if err != nil {
+
+				fmt.Println("检测到连接失败，删除sock文件")
+
+				os.Remove(st.getSockName())
+
+			} else {
+
+				conn.Close()
+
+				return errors.New("正在运行，请不要重复运行！")
+
+			}
+
 		}
 
 		if st.startFunc != nil {
