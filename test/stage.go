@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/PeterYangs/gostage"
-	"github.com/spf13/cast"
 	"time"
 )
 
@@ -18,9 +17,17 @@ func main() {
 
 	s := g.StartFunc(func(request *gostage.Request) (string, error) {
 
-		index := 0
+		//index := 0
 
 		fmt.Println("启动！")
+
+		defer func() {
+
+			fmt.Println("结束！")
+
+			request.StopDaemonProcess()
+
+		}()
 
 		for {
 
@@ -32,13 +39,29 @@ func main() {
 
 			default:
 
-				time.Sleep(1 * time.Second)
+				//panic("异常测试")
 
-				index++
+				for i := 0; i < 100; i++ {
+
+					time.Sleep(1 * time.Second)
+
+					fmt.Println(i)
+
+					//panic("异常测试")
+
+					//return "", nil
+
+				}
+
+				panic("异常测试")
+
+				return "nice", nil
+
+				//index++
 
 				//fmt.Println(request.GetFlag("file"))
 
-				request.Set("index", cast.ToString(index))
+				//request.Set("index", cast.ToString(index))
 
 			}
 

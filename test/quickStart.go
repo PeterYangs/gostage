@@ -54,6 +54,11 @@ func main() {
 
 	})
 
+	g.AddCommand("nice", "", func(request *gostage.Request) (string, error) {
+
+		return "", nil
+	})
+
 	err := g.Run()
 
 	if err != nil {

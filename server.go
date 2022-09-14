@@ -29,16 +29,12 @@ func NewServer(st *Stage) *Server {
 
 func (s *Server) Start() error {
 
-	//fmt.Println(os.Getenv("SOCK_FILE"))
-
 	listen, err := net.Listen("unix", s.sockFile)
 
 	if err != nil {
 
 		return err
 	}
-
-	//s.st.wait.Add(1)
 
 	s.listen = listen
 

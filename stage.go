@@ -78,6 +78,7 @@ func NewStage(cxt context.Context) *Stage {
 	}
 }
 
+// SetRunUser 启动用户
 func (st *Stage) SetRunUser(user string) *Stage {
 
 	st.config.RunUser = user
@@ -86,6 +87,15 @@ func (st *Stage) SetRunUser(user string) *Stage {
 
 }
 
+//// NotStartServer 不启动socket服务
+//func (st *Stage) NotStartServer() *Stage {
+//
+//	st.notStartServer = true
+//
+//	return st
+//}
+
+// SetRunPath 运行文件存放文件夹
 func (st *Stage) SetRunPath(runPath string) *Stage {
 
 	st.config.RunPath = runPath
@@ -93,6 +103,7 @@ func (st *Stage) SetRunPath(runPath string) *Stage {
 	return st
 }
 
+// SetLogPath 日志存放文件夹
 func (st *Stage) SetLogPath(logPath string) *Stage {
 
 	st.config.LogPath = logPath
@@ -125,7 +136,7 @@ func (st *Stage) StartFunc(f func(request *Request) (string, error)) *item {
 
 			os.Remove(st.getRunPidName())
 
-			if st.server.listen != nil {
+			if st.server != nil && st.server.listen != nil {
 
 				st.server.listen.Close()
 			}
@@ -157,6 +168,9 @@ func (st *Stage) StartFunc(f func(request *Request) (string, error)) *item {
 
 		//退出信号
 		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+		//不启动socket服务端
+		//if !st.notStartServer {
 
 		serv := NewServer(st)
 
@@ -208,6 +222,8 @@ func (st *Stage) StartFunc(f func(request *Request) (string, error)) *item {
 
 			return "", err
 		}
+
+		//}
 
 		defer st.cancel()
 
