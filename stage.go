@@ -773,12 +773,12 @@ func (st *Stage) stop() error {
 
 				g := gcmd2.NewCommand("kill.exe -SIGINT "+string(dPid), context.Background())
 
-				err := g.Start()
+				g.Start()
 
-				if err != nil {
-
-					return err
-				}
+				//if err != nil {
+				//
+				//	return err
+				//}
 
 				return st.sendStop()
 
