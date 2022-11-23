@@ -818,6 +818,8 @@ func (st *Stage) stop() error {
 
 func (st *Stage) sendStop() error {
 
+	fmt.Println("关闭主进程")
+
 	c := NewClient(st)
 
 	d := data{
