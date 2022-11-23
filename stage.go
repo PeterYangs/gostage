@@ -712,21 +712,25 @@ func (st *Stage) StopDaemonProcess() error {
 
 		if sysType == `windows` {
 
-			if st.createWindowsKill() {
+			//if st.createWindowsKill() {
 
-				g := gcmd2.NewCommand("kill.exe -SIGINT "+string(dPid), context.Background())
+			//g := gcmd2.NewCommand("kill.exe -SIGINT "+string(dPid), context.Background())
 
-				err := g.Start()
+			g := gcmd2.NewCommand("taskkill /pid "+string(dPid)+"   -f", context.Background())
 
-				if err != nil {
+			g.Start()
 
-					return err
-				}
+			return nil
 
-			} else {
+			//if err != nil {
+			//
+			//	return err
+			//}
 
-				return errors.New("windows生成kill.exe失败")
-			}
+			//} else {
+			//
+			//	return errors.New("windows生成kill.exe失败")
+			//}
 
 		}
 
@@ -769,23 +773,25 @@ func (st *Stage) stop() error {
 
 		if sysType == `windows` {
 
-			if st.createWindowsKill() {
+			//if st.createWindowsKill() {
 
-				g := gcmd2.NewCommand("kill.exe -SIGINT "+string(dPid), context.Background())
+			//g := gcmd2.NewCommand("kill.exe -SIGINT "+string(dPid), context.Background())
 
-				g.Start()
+			g := gcmd2.NewCommand("taskkill /pid "+string(dPid)+"   -f", context.Background())
 
-				//if err != nil {
-				//
-				//	return err
-				//}
+			g.Start()
 
-				return st.sendStop()
+			//if err != nil {
+			//
+			//	return err
+			//}
 
-			} else {
+			return st.sendStop()
 
-				return errors.New("windows生成kill.exe失败")
-			}
+			//} else {
+			//
+			//	return errors.New("windows生成kill.exe失败")
+			//}
 
 		}
 
